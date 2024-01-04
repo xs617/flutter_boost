@@ -35,6 +35,7 @@ import io.flutter.embedding.android.FlutterView;
 import io.flutter.embedding.android.RenderMode;
 import io.flutter.embedding.android.TransparencyMode;
 import io.flutter.embedding.engine.FlutterEngine;
+import io.flutter.embedding.engine.renderer.FlutterRenderer;
 import io.flutter.plugin.platform.PlatformPlugin;
 
 public class FlutterBoostFragment extends FlutterFragment implements FlutterViewContainer {
@@ -392,6 +393,30 @@ public class FlutterBoostFragment extends FlutterFragment implements FlutterView
             isAttached = false;
         }
     }
+
+    @Override
+    public void detachFromEngineFlutterView(){
+        if(flutterView.isAttachedToFlutterEngine()) {
+            flutterView.detachFromFlutterEngine();
+        }
+    }
+
+    @Override
+    public void detachFromEngineWithoutFlutterView() {
+        if (isDebugLoggingEnabled()) Log.d(TAG, "#detachFromEngineWithoutFlutterView: " + this);
+
+        if (isAttached) {
+            // Plugins are no longer attached to the activity.
+            getFlutterEngine().getActivityControlSurface().detachFromActivity();
+            // Release Flutter's control of UI such as system chrome.
+            releasePlatformChannel();
+
+            FlutterRenderer flutterRenderer = getFlutterEngine().getRenderer();
+            flutterRenderer.stopRenderingToSurface();
+            isAttached = false;
+        }
+    }
+
 
     // Defaults to {@link TransparencyMode#opaque}.
     @Override

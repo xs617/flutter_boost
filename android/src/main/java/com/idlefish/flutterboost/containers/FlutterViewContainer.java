@@ -20,4 +20,6 @@ public interface FlutterViewContainer {
     default boolean isPausing() { return false; }
     default boolean isOpaque() { return true; }
     default void detachFromEngineIfNeeded() {}
+    default void detachFromEngineWithoutFlutterView(){}
+    default void detachFromEngineFlutterView(){}
 }

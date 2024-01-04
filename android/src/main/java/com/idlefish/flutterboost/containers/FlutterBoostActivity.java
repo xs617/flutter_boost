@@ -49,6 +49,8 @@ public class FlutterBoostActivity extends FlutterActivity implements FlutterView
     private LifecycleStage stage;
     private boolean isAttached = false;
 
+    private FlutterViewContainer delayDetach;
+
     private boolean isDebugLoggingEnabled() {
         return FlutterBoostUtils.isDebugLoggingEnabled();
     }
@@ -66,12 +68,13 @@ public class FlutterBoostActivity extends FlutterActivity implements FlutterView
                     FlutterBoostUtils.setSystemChromeSystemUIOverlayStyle(this, preContainerTheme);
                 }
             }
-            top.detachFromEngineIfNeeded();
+            delayDetach = top;
+//            top.detachFromEngineWithoutFlutterView();
         }
         super.onCreate(savedInstanceState);
         stage = LifecycleStage.ON_CREATE;
         flutterView = FlutterBoostUtils.findFlutterView(getWindow().getDecorView());
-        flutterView.detachFromFlutterEngine(); // Avoid failure when attaching to engine in |onResume|.
+//        flutterView.detachFromFlutterEngine(); // Avoid failure when attaching to engine in |onResume|.
         FlutterBoost.instance().getPlugin().onContainerCreated(this);
     }
 
@@ -130,7 +133,7 @@ public class FlutterBoostActivity extends FlutterActivity implements FlutterView
 
         // try to detach *prevous* container from the engine.
         FlutterViewContainer top = containerManager.getTopContainer();
-        if (top != null && top != this) top.detachFromEngineIfNeeded();
+        if (top != null && top != this) top.detachFromEngineWithoutFlutterView();
 
         FlutterBoost.instance().getPlugin().onContainerAppeared(this, () -> {
             // attach new container to the engine.
@@ -169,6 +172,11 @@ public class FlutterBoostActivity extends FlutterActivity implements FlutterView
 
         // We defer |performDetach| call to new Flutter container's |onResume|.
         setIsFlutterUiDisplayed(false);
+
+        if (delayDetach != null) {
+            delayDetach.detachFromEngineFlutterView();
+            delayDetach = null;
+        }
     }
 
     @Override
@@ -239,6 +247,22 @@ public class FlutterBoostActivity extends FlutterActivity implements FlutterView
         if (isDebugLoggingEnabled()) Log.d(TAG, "#detachFromEngineIfNeeded: " + this);
         if (isAttached) {
             performDetach();
+            isAttached = false;
+        }
+    }
+
+    @Override
+    public void detachFromEngineWithoutFlutterView() {
+        if (isDebugLoggingEnabled()) Log.d(TAG, "#detachFromEngineWithoutFlutterView: " + this);
+
+        if (isAttached) {
+            // Plugins are no longer attached to the activity.
+            getFlutterEngine().getActivityControlSurface().detachFromActivity();
+            // Release Flutter's control of UI such as system chrome.
+            releasePlatformChannel();
+
+            FlutterRenderer flutterRenderer = getFlutterEngine().getRenderer();
+            flutterRenderer.stopRenderingToSurface();
             isAttached = false;
         }
     }
@@ -353,7 +377,7 @@ public class FlutterBoostActivity extends FlutterActivity implements FlutterView
 
     @Override
     public boolean isOpaque() {
-        return getBackgroundMode() ==  BackgroundMode.opaque;
+        return getBackgroundMode() == BackgroundMode.opaque;
     }
 
     @Override
